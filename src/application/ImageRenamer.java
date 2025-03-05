@@ -1,4 +1,3 @@
-
 package application;
 
 import javafx.application.Application;
@@ -6,17 +5,19 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ImageRenamer extends Application {
+    private static final Logger LOGGER = Logger.getLogger(ImageRenamer.class.getName());
     private TextField formatField;
     private FlowPane previewPane;
     private File selectedFolder;
@@ -35,7 +36,13 @@ public class ImageRenamer extends Application {
         openButton.setOnAction(e -> openFolder(primaryStage));
         renameButton.setOnAction(e -> {
             if (selectedFolder != null) {
-                renameImages(selectedFolder);
+                try {
+                    renameImages(selectedFolder);
+                    displayConfirmation();
+                } catch (ImageRenamingException ex) {
+                    showErrorDialog(ex.getMessage());
+                    LOGGER.log(Level.SEVERE, "Error renaming images", ex);
+                }
             }
         });
 
@@ -64,23 +71,23 @@ public class ImageRenamer extends Application {
         }
     }
 
-    private void renameImages(File folder) {
+    private void renameImages(File folder) throws ImageRenamingException {
         File[] files = folder.listFiles((dir, name) -> name.matches(".*\\.(png|jpg|jpeg|gif|bmp)"));
         if (files != null) {
             Arrays.sort(files);
             String baseName = formatField.getText();
             for (int i = 0; i < files.length; i++) {
-            	String fileName = files[i].getName();
-            	int lastDotIndex = fileName.lastIndexOf('.');
-            	String extension = (lastDotIndex != -1) ? fileName.substring(lastDotIndex) : "";
+                String fileName = files[i].getName();
+                int lastDotIndex = fileName.lastIndexOf('.');
+                String extension = (lastDotIndex != -1) ? fileName.substring(lastDotIndex) : "";
 
                 String newName = (i + 1) + "_" + baseName + extension;
                 File newFile = new File(folder, newName);
                 if (!files[i].equals(newFile)) {
                     try {
                         Files.move(files[i].toPath(), newFile.toPath());
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                    } catch (IOException e) {
+                        throw new ImageRenamingException("Error renaming file: " + files[i].getName(), e);
                     }
                 }
             }
@@ -92,10 +99,31 @@ public class ImageRenamer extends Application {
         File[] files = folder.listFiles((dir, name) -> name.matches(".*\\.(png|jpg|jpeg|gif|bmp)"));
         if (files != null) {
             for (File file : files) {
+                VBox imageContainer = new VBox();
                 Image image = new Image(file.toURI().toString(), 100, 100, true, true);
                 ImageView imageView = new ImageView(image);
-                previewPane.getChildren().add(imageView);
+                Label fileNameLabel = new Label(file.getName());
+                imageContainer.getChildren().addAll(imageView, fileNameLabel);
+                imageContainer.setSpacing(5);
+                previewPane.getChildren().add(imageContainer);
             }
         }
     }
+
+    private void displayConfirmation() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Renaming Complete");
+        alert.setHeaderText(null);
+        alert.setContentText("The images have been successfully renamed.");
+        alert.showAndWait();
+    }
+
+    private void showErrorDialog(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Error");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
 }
+
