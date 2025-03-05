@@ -1,6 +1,7 @@
 package application;
 
 import javafx.application.Application;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
@@ -13,11 +14,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class ImageRenamer extends Application {
-    private static final Logger LOGGER = Logger.getLogger(ImageRenamer.class.getName());
+    private static final MyLogger LOGGER = new MyLogger("errors.log");
     private TextField formatField;
     private FlowPane previewPane;
     private File selectedFolder;
@@ -39,9 +38,10 @@ public class ImageRenamer extends Application {
                 try {
                     renameImages(selectedFolder);
                     displayConfirmation();
+                    displayPreview(selectedFolder);
                 } catch (ImageRenamingException ex) {
                     showErrorDialog(ex.getMessage());
-                    LOGGER.log(Level.SEVERE, "Error renaming images", ex);
+                    LOGGER.log("Error renaming images", ex);
                 }
             }
         });
@@ -81,12 +81,13 @@ public class ImageRenamer extends Application {
                 int lastDotIndex = fileName.lastIndexOf('.');
                 String extension = (lastDotIndex != -1) ? fileName.substring(lastDotIndex) : "";
 
-                String newName = (i + 1) + "_" + baseName + extension;
+                String newName = String.format("%03d_%s%s", i + 1, baseName, extension);
                 File newFile = new File(folder, newName);
                 if (!files[i].equals(newFile)) {
                     try {
                         Files.move(files[i].toPath(), newFile.toPath());
                     } catch (IOException e) {
+                        LOGGER.log("Error renaming images", e);
                         throw new ImageRenamingException("Error renaming file: " + files[i].getName(), e);
                     }
                 }
@@ -104,7 +105,7 @@ public class ImageRenamer extends Application {
                 ImageView imageView = new ImageView(image);
                 Label fileNameLabel = new Label(file.getName());
                 imageContainer.getChildren().addAll(imageView, fileNameLabel);
-                imageContainer.setSpacing(5);
+                imageContainer.setPadding(new Insets(5));
                 previewPane.getChildren().add(imageContainer);
             }
         }
@@ -126,4 +127,3 @@ public class ImageRenamer extends Application {
         alert.showAndWait();
     }
 }
-
